@@ -1,5 +1,10 @@
 import requests
+import configparser
 from datetime import datetime, timedelta, timezone
+
+# Cargar configuración desde un archivo de propiedades
+config = configparser.ConfigParser()
+config.read("config.properties")
 
 def format_datetime(date):
     """Formatea la fecha en formato ISO 8601 compatible con la API."""
@@ -7,8 +12,8 @@ def format_datetime(date):
 
 def send_to_splunk(event):
     """Envía un evento a Splunk utilizando el HTTP Event Collector (HEC). Maneja errores de conexión."""
-    splunk_url = "https://http-inputs-yourcompany.splunkcloud.com/services/collector"
-    splunk_token = "put_your_splunk_token_here"
+    splunk_url = config["SPLUNK"]["url"]
+    splunk_token = config["SPLUNK"]["token"]
     headers = {
         "Authorization": f"Splunk {splunk_token}",
         "Content-Type": "application/json"
@@ -39,24 +44,22 @@ def get_incident_details(token, incident_id):
         print(f"Error al obtener detalles para el incidente {incident_id}: {response.status_code}")
         return {}
 
-def get_incidents(from_date=None, to_date=None, filter_by="updatedAt", limit=5, offset=0):
-    # Definir valores por defecto
+def get_incidents(filter_by="updatedAt", limit=1000, offset=0):
+    # Obtener la hora actual y hace 1 hora en UTC
     now = datetime.now(timezone.utc)
-    if from_date is not None:
-        from_date = format_datetime(from_date)
-    if to_date is not None:
-        to_date = format_datetime(to_date)
+    from_date = format_datetime(now - timedelta(hours=1))
+    to_date = format_datetime(now)
     
     # Autenticación
-    auth_url = "https://cloudinfra-gw.portal.checkpoint.com/auth/external"
+    auth_url = config["XDR"]["auth_url"]
     auth_headers = {
         "accept": "application/json",
         "Content-Type": "application/json"
     }
     auth_data = {
-        "clientId": "put_your_client_id_here",
-        "accessKey": "put_your_access_key_here",
-        "ck": "externalClient01"
+        "clientId": config["XDR"]["client_id"],
+        "accessKey": config["XDR"]["access_key"],
+        "ck": config["XDR"]["ck"]
     }
 
     auth_response = requests.post(auth_url, json=auth_data, headers=auth_headers)
@@ -69,17 +72,12 @@ def get_incidents(from_date=None, to_date=None, filter_by="updatedAt", limit=5, 
         
         if token:
             print("Token obtenido: Ok Expira el", expires)
-            print("---- Últimos", limit, "resultados")
             
-            # Construir la URL sin from/to si no están definidos
+            # Construir la URL con filtro de última hora
             xdr_url = (
                 f"https://cloudinfra-gw.portal.checkpoint.com/app/xdr/api/xdr/v1/incidents?"
-                f"filterBy={filter_by}&limit={limit}&offset={offset}"
+                f"filterBy={filter_by}&limit={limit}&offset={offset}&from={from_date}&to={to_date}"
             )
-            
-            # Agregar from y to solo si están definidos
-            if from_date and to_date:
-                xdr_url += f"&from={from_date}&to={to_date}"
             
             xdr_headers = {
                 "accept": "application/json",
@@ -114,7 +112,7 @@ def get_incidents(from_date=None, to_date=None, filter_by="updatedAt", limit=5, 
                             send_to_splunk(incident_details)
                             print ("Se envía el evento", incident_id, severity, "a Splunk")
                 else:
-                    print("No se encontraron incidentes recientes.")
+                    print("No se encontraron incidentes en la última hora.")
             else:
                 print("Error en la solicitud de XDR_XPR:", xdr_response.status_code)
                 print(xdr_response.text)
@@ -124,5 +122,5 @@ def get_incidents(from_date=None, to_date=None, filter_by="updatedAt", limit=5, 
         print("Error en la autenticación:", auth_response.status_code)
         print(auth_response.text)
 
-# Llamar a la función sin from y to para probar si eso resuelve el problema
+# Llamar a la función para obtener incidentes de la última hora
 get_incidents()
