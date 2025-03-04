@@ -1,9 +1,7 @@
 # harmony_xdr2splunk
 Send incidentes from Harmony XDR XPR to Splunk HEC
 
-# README
-
-## English
+## README
 
 ### Overview
 This script retrieves security incident data from the Check Point XDR API and sends high-severity incidents to Splunk using the HTTP Event Collector (HEC). It performs authentication, fetches recent incidents, and sends the relevant data to Splunk.
@@ -39,8 +37,6 @@ The script will:
 3. If incidents have high or critical severity, fetch their full details and send them to Splunk.
 
 ---
-
-## Español
 
 ### Descripción
 Este script obtiene datos de incidentes de seguridad desde la API de Check Point XDR y envía incidentes de alta severidad a Splunk utilizando el HTTP Event Collector (HEC). Realiza la autenticación, obtiene incidentes recientes y envía la información relevante a Splunk.
